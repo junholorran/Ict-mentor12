@@ -1,0 +1,161 @@
+import { useState, useRef, useEffect } from “react”;
+
+const PAIRS = [“BTCUSDT”,“ETHUSDT”,“SOLUSDT”,“BNBUSDT”,“XRPUSDT”,“ADAUSDT”,“DOGEUSDT”,“AVAXUSDT”,“EURUSD”,“GBPUSD”,“XAUUSD”,“Outro”];
+const TFS   = [“M1”,“M5”,“M15”,“M30”,“H1”,“H4”,“D1”,“W1”];
+
+const SYSTEM = `És um trader ICT/SMC expert com anos de experiência real. Analisas setups com base na metodologia ICT (Inner Circle Trader) e SMC (Smart Money Concepts).
+
+Responde sempre em português do Brasil. Sê direto e prático como um mentor experiente.
+
+Nas tuas análises inclui sempre o que for relevante:
+
+- Bias direcional (bullish/bearish) com justificação clara
+- Estrutura de mercado: BOS, CHoCH, MSB
+- Zonas: Order Blocks, FVG, IFVG, Breaker Blocks
+- Liquidez: BSL, SSL, EQH, EQL, liquidity sweeps
+- Timing: sessões London/NY, macros ICT, killzones
+- OTE: Optimal Trade Entry 61.8-79% do fib
+- Gestão: onde colocar SL, TP, RR mínimo aceitável
+- Veredicto final em maiúsculas: LONG / SHORT / AGUARDA / FORA
+
+Máximo 250 palavras. Sem rodeios. Termina sempre com o veredicto em linha separada.`;
+
+const QUICK = [
+“Descreve a estrutura atual”,
+“Há Order Block relevante?”,
+“Posso entrar agora?”,
+“Onde está a liquidez?”,
+“Qual o bias hoje?”,
+“Há FVG relevante?”,
+“Onde coloco SL e TP?”,
+];
+
+export default function App() {
+const [pair, setPair] = useState(“BTCUSDT”);
+const [tf, setTf]     = useState(“H1”);
+const [input, setInput] = useState(””);
+const [msgs, setMsgs]   = useState([
+{ role:“assistant”, content:“Fala mano! 👋\n\nEscolhe o par e o timeframe, depois descreve o que estás a ver no gráfico.\n\nEx: "CHoCH formado no H1, preço a testar OB bullish — entro?"\n\nVamos analisar juntos.” }
+]);
+const [loading, setLoading] = useState(false);
+const bottomRef = useRef(null);
+
+useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:“smooth” }); }, [msgs, loading]);
+
+const send = async (text) => {
+const t = (text || input).trim();
+if (!t || loading) return;
+const userMsg = `[${pair} · ${tf}]\n${t}`;
+const newMsgs = […msgs, { role:“user”, content: userMsg }];
+setMsgs(newMsgs);
+setInput(””);
+setLoading(true);
+try {
+const r = await fetch(“https://api.anthropic.com/v1/messages”, {
+method:“POST”,
+headers:{“Content-Type”:“application/json”},
+body: JSON.stringify({
+model:“claude-sonnet-4-20250514”,
+max_tokens:1000,
+system: SYSTEM,
+messages: newMsgs.map(m => ({ role:m.role, content:m.content }))
+})
+});
+const d = await r.json();
+const reply = d.content?.[0]?.text || “Erro. Tenta de novo.”;
+setMsgs(prev => […prev, { role:“assistant”, content: reply }]);
+} catch(e) {
+setMsgs(prev => […prev, { role:“assistant”, content:“Erro de ligação. Verifica a internet.” }]);
+}
+setLoading(false);
+};
+
+const c = {
+bg:”#050810”, sur:”#0c1120”, bor:”#1a2540”,
+gold:”#c9a84c”, gdim:”#7a6230”, mut:”#4a5568”, txt:”#e2e8f0”
+};
+
+return (
+<div style={{ background:c.bg, height:“100vh”, display:“flex”, flexDirection:“column”, fontFamily:”‘Courier New’,monospace”, color:c.txt, maxWidth:520, margin:“0 auto” }}>
+
+```
+  {/* Header */}
+  <div style={{ padding:"12px 16px 10px", borderBottom:`1px solid ${c.bor}`, flexShrink:0 }}>
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+      <div>
+        <div style={{ fontSize:9, letterSpacing:3, color:c.mut }}>ICT · SMC · SMART MONEY</div>
+        <div style={{ fontSize:20, fontWeight:900, letterSpacing:3, color:c.gold }}>ICT MENTOR AI</div>
+      </div>
+      <button onClick={() => { setMsgs([{ role:"assistant", content:"Fala mano! 👋\n\nDescreve o setup." }]); setInput(""); }}
+        style={{ background:"transparent", border:`1px solid ${c.bor}`, color:c.mut, fontFamily:"'Courier New',monospace", fontSize:10, padding:"6px 12px", borderRadius:3, cursor:"pointer" }}>
+        ↺ RESET
+      </button>
+    </div>
+    <div style={{ display:"flex", gap:8 }}>
+      <select value={pair} onChange={e=>setPair(e.target.value)}
+        style={{ flex:2, background:c.sur, border:`1px solid ${c.bor}`, color:c.txt, fontFamily:"'Courier New',monospace", fontSize:11, padding:"8px 10px", borderRadius:3, outline:"none" }}>
+        {PAIRS.map(p=><option key={p}>{p}</option>)}
+      </select>
+      <select value={tf} onChange={e=>setTf(e.target.value)}
+        style={{ flex:1, background:c.sur, border:`1px solid ${c.bor}`, color:c.txt, fontFamily:"'Courier New',monospace", fontSize:11, padding:"8px 10px", borderRadius:3, outline:"none" }}>
+        {TFS.map(t=><option key={t}>{t}</option>)}
+      </select>
+    </div>
+  </div>
+
+  {/* Messages */}
+  <div style={{ flex:1, overflowY:"auto", padding:"14px 16px", display:"flex", flexDirection:"column", gap:12 }}>
+    {msgs.map((m,i) => (
+      <div key={i} style={{ display:"flex", justifyContent: m.role==="user"?"flex-end":"flex-start" }}>
+        <div style={{
+          maxWidth:"90%", padding:"11px 14px", fontSize:12, lineHeight:1.85, wordBreak:"break-word",
+          whiteSpace:"pre-wrap",
+          background: m.role==="user" ? "rgba(201,168,76,0.1)" : c.sur,
+          border: `1px solid ${m.role==="user" ? c.gdim : c.bor}`,
+          borderRadius: m.role==="user" ? "14px 14px 2px 14px" : "14px 14px 14px 2px",
+          color: m.role==="user" ? c.gold : c.txt,
+        }}>
+          {m.role==="assistant" && <div style={{ fontSize:9, letterSpacing:2, color:c.mut, marginBottom:6 }}>● ICT MENTOR</div>}
+          {m.content}
+        </div>
+      </div>
+    ))}
+    {loading && (
+      <div style={{ display:"flex" }}>
+        <div style={{ padding:"11px 14px", background:c.sur, border:`1px solid ${c.bor}`, borderRadius:"14px 14px 14px 2px" }}>
+          <div style={{ fontSize:9, letterSpacing:2, color:c.mut, marginBottom:6 }}>● ICT MENTOR</div>
+          <div style={{ fontSize:12, color:c.mut }}>Analisando...</div>
+        </div>
+      </div>
+    )}
+    <div ref={bottomRef} />
+  </div>
+
+  {/* Quick buttons */}
+  <div style={{ padding:"6px 16px 0", display:"flex", gap:6, overflowX:"auto", flexShrink:0, scrollbarWidth:"none" }}>
+    {QUICK.map(q => (
+      <button key={q} onClick={() => send(q)}
+        style={{ background:c.sur, border:`1px solid ${c.bor}`, color:c.mut, fontFamily:"'Courier New',monospace", fontSize:9, padding:"5px 10px", borderRadius:20, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0 }}>
+        {q}
+      </button>
+    ))}
+  </div>
+
+  {/* Input */}
+  <div style={{ padding:"8px 16px 20px", display:"flex", gap:8, flexShrink:0 }}>
+    <textarea value={input} onChange={e=>setInput(e.target.value)}
+      onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();} }}
+      placeholder="Descreve o setup... ex: CHoCH no H1, OB bullish a $94.200, procuro entrada no M15"
+      rows={3}
+      style={{ flex:1, background:c.sur, border:`1px solid ${c.bor}`, color:c.txt, fontFamily:"'Courier New',monospace", fontSize:11, padding:"10px 12px", borderRadius:3, resize:"none", outline:"none", lineHeight:1.6 }}
+    />
+    <button onClick={() => send()} disabled={loading || !input.trim()}
+      style={{ width:46, background:"rgba(201,168,76,0.12)", border:`1px solid ${c.gold}`, color:c.gold, fontSize:18, borderRadius:3, cursor: loading||!input.trim()?"not-allowed":"pointer", opacity: loading||!input.trim()?0.3:1, flexShrink:0 }}>
+      ▶
+    </button>
+  </div>
+</div>
+```
+
+);
+}
